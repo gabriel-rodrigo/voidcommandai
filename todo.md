@@ -26,3 +26,12 @@
 - [x] Integrate score submission after each match
 - [x] Add player name input for leaderboard
 - [x] Add ranking position indicators and visual polish
+- [x] Setup Socket.IO on backend server for real-time communication
+- [x] Implement game room management (create, join, leave, list)
+- [x] Implement lobby screen showing available rooms
+- [x] Implement waiting room screen for host and joining player
+- [x] Implement multiplayer fleet selection (both players select ships)
+- [x] Implement multiplayer battle with turn synchronization
+- [x] Implement multiplayer results screen with score submission
+- [x] Add multiplayer option to main menu
+- [x] Unit tests for multiplayer logic

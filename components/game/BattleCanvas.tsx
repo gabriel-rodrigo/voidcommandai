@@ -5,9 +5,6 @@ import Svg, {
   Circle,
   Line,
   G,
-  Defs,
-  RadialGradient,
-  Stop,
   Text as SvgText,
 } from "react-native-svg";
 import { GameState, Bullet, Person, Player, Vector2 } from "@/lib/game/types";
@@ -23,14 +20,21 @@ interface DamagePopup {
   isCritical: boolean;
 }
 
-interface BattleCanvasProps {
+export interface BattleCanvasProps {
   gameState: GameState;
   bullets: Bullet[];
   selectedUnitId: string | null;
-  selectionStep: 0 | 1 | 2;
-  pendingMove: Vector2 | null;
-  damagePopups: DamagePopup[];
-  scale: number;
+  selectionStep?: 0 | 1 | 2;
+  pendingMove?: Vector2 | null;
+  damagePopups?: DamagePopup[];
+  /** Numeric scale factor (legacy). Ignored when width/height are provided. */
+  scale?: number;
+  /** Explicit canvas width in px. Takes priority over scale. */
+  width?: number;
+  /** Explicit canvas height in px. Takes priority over scale. */
+  height?: number;
+  /** Dynamic local-player id. Defaults to "human-player" for single-player. */
+  myId?: string;
 }
 
 const SHIP_COLORS: Record<number, string> = {
@@ -38,20 +42,21 @@ const SHIP_COLORS: Record<number, string> = {
   2: "#3B82F6",
 };
 
-const SHIP_GLOW: Record<number, string> = {
-  1: "rgba(239,68,68,0.4)",
-  2: "rgba(59,130,246,0.4)",
-};
-
 export function BattleCanvas({
   gameState,
   bullets,
   selectedUnitId,
-  selectionStep,
-  pendingMove,
-  damagePopups,
-  scale,
+  selectionStep = 0,
+  pendingMove = null,
+  damagePopups = [],
+  scale = 1,
+  width,
+  height,
+  myId = "human-player",
 }: BattleCanvasProps) {
+  const canvasW = width ?? SCENE_WIDTH * scale;
+  const canvasH = height ?? SCENE_HEIGHT * scale;
+
   const stars = useMemo(() => {
     const s = [];
     for (let i = 0; i < 50; i++) {
@@ -77,13 +82,13 @@ export function BattleCanvas({
   }, []);
 
   const players = Object.values(gameState.players) as Player[];
-  const myPlayer = gameState.players["human-player"];
+  const myPlayer = gameState.players[myId];
 
   return (
-    <View style={[styles.container, { width: SCENE_WIDTH * scale, height: SCENE_HEIGHT * scale }]}>
+    <View style={[styles.container, { width: canvasW, height: canvasH }]}>
       <Svg
-        width={SCENE_WIDTH * scale}
-        height={SCENE_HEIGHT * scale}
+        width={canvasW}
+        height={canvasH}
         viewBox={`0 0 ${SCENE_WIDTH} ${SCENE_HEIGHT}`}
       >
         {/* Background */}
@@ -210,7 +215,7 @@ export function BattleCanvas({
           player.persons.map((person) => {
             if (person.life <= 0) return null;
             const isSelected = selectedUnitId === person.id;
-            const isOwn = player.id === "human-player";
+            const isOwn = player.id === myId;
             const color = SHIP_COLORS[player.slot] ?? "#888";
             const size = isSelected ? person.size * 1.2 : person.size;
 
@@ -294,27 +299,29 @@ export function BattleCanvas({
                   opacity={0.8}
                 />
 
-                {/* Health bar */}
-                {isOwn && (
-                  <>
-                    <Rect
-                      x={person.x - 15}
-                      y={person.y - size - 8}
-                      width={30}
-                      height={3}
-                      rx={1.5}
-                      fill="#333"
-                    />
-                    <Rect
-                      x={person.x - 15}
-                      y={person.y - size - 8}
-                      width={30 * (person.life / person.maxLife)}
-                      height={3}
-                      rx={1.5}
-                      fill={person.life / person.maxLife > 0.5 ? "#22C55E" : "#EF4444"}
-                    />
-                  </>
-                )}
+                {/* Health bar (always show for all ships) */}
+                <Rect
+                  x={person.x - 15}
+                  y={person.y - size - 8}
+                  width={30}
+                  height={3}
+                  rx={1.5}
+                  fill="#333"
+                />
+                <Rect
+                  x={person.x - 15}
+                  y={person.y - size - 8}
+                  width={30 * (person.life / person.maxLife)}
+                  height={3}
+                  rx={1.5}
+                  fill={
+                    isOwn
+                      ? person.life / person.maxLife > 0.5
+                        ? "#22C55E"
+                        : "#EF4444"
+                      : "#3B82F6"
+                  }
+                />
 
                 {/* Unit type label */}
                 <SvgText

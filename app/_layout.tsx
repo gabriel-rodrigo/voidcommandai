@@ -92,6 +92,9 @@ export default function RootLayout() {
             <Stack.Screen name="shipyard" />
             <Stack.Screen name="battle" />
             <Stack.Screen name="results" />
+            <Stack.Screen name="lobby" />
+            <Stack.Screen name="waiting-room" />
+            <Stack.Screen name="mp-battle" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />

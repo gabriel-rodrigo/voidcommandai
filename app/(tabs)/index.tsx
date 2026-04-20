@@ -20,6 +20,10 @@ export default function HomeScreen() {
     router.push({ pathname: "/shipyard", params: { difficulty } });
   };
 
+  const handleMultiplayer = () => {
+    router.push("/lobby" as any);
+  };
+
   return (
     <ScreenContainer containerClassName="bg-[#050505]">
       <ScrollView
@@ -50,6 +54,17 @@ export default function HomeScreen() {
                 <Text style={styles.primaryButtonText}>SINGLE PLAYER</Text>
               </Pressable>
 
+              <Pressable
+                onPress={handleMultiplayer}
+                style={({ pressed }) => [
+                  styles.multiplayerButton,
+                  pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <MaterialIcons name="people" size={22} color="#FFF" />
+                <Text style={styles.multiplayerButtonText}>MULTIPLAYER</Text>
+              </Pressable>
+
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.dividerText}>COMMAND ACCESS</Text>
@@ -70,8 +85,8 @@ export default function HomeScreen() {
                   <Text style={styles.featureText}>Smart AI</Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <MaterialIcons name="upgrade" size={18} color="#666" />
-                  <Text style={styles.featureText}>Powerups</Text>
+                  <MaterialIcons name="people" size={18} color="#666" />
+                  <Text style={styles.featureText}>Online PvP</Text>
                 </View>
               </View>
             </View>
@@ -202,6 +217,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "900",
     color: "#000",
+    letterSpacing: 2,
+  },
+  multiplayerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.3)",
+  },
+  multiplayerButtonText: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#FFF",
     letterSpacing: 2,
   },
   divider: {

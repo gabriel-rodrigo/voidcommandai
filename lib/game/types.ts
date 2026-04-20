@@ -85,7 +85,7 @@ export type Difficulty = "easy" | "normal" | "hard";
 export interface GameState {
   players: Record<string, Player>;
   status: GameStatus;
-  mode: "single";
+  mode: "single" | "multiplayer";
   difficulty: Difficulty;
   winner?: number;
   turnTime: number;

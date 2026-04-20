@@ -2,11 +2,17 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import { Server } from "socket.io";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { registerMultiplayerHandlers } from "../multiplayer/room-manager";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from "../../shared/multiplayer-types";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -31,6 +37,21 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // ─── Socket.IO for multiplayer ─────────────────────────────────────
+  const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    path: "/api/socket.io",
+    transports: ["websocket", "polling"],
+  });
+
+  registerMultiplayerHandlers(io);
+  console.log("[MP] Socket.IO multiplayer server initialized");
+
+  // ─── Express middleware ────────────────────────────────────────────
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
     const origin = req.headers.origin;
