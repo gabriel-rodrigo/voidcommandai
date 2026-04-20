@@ -63,7 +63,7 @@ export default function ShipyardScreen() {
 
   return (
     <ScreenContainer
-      edges={["top", "bottom", "left", "right"]}
+      edges={["top", "left", "right"]}
       containerClassName="bg-[#050505]"
     >
       {/* Header with back button */}
@@ -124,12 +124,10 @@ export default function ShipyardScreen() {
         })}
       </View>
 
-      {/* Ship list */}
+      {/* Ship list - flex: 1 to fill remaining space */}
       <ScrollView
-        contentContainerStyle={[
-          styles.shipList,
-          hasSelection && { paddingBottom: 110 },
-        ]}
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.shipList}
         showsVerticalScrollIndicator={false}
       >
         {SHIP_TYPES_LIST.map((ship) => {
@@ -182,42 +180,39 @@ export default function ShipyardScreen() {
           );
         })}
 
-        <View style={styles.adContainer}>
+        <View style={styles.adContainer} pointerEvents="none">
           <AdBanner size="small" />
         </View>
       </ScrollView>
 
-      {/* Floating Action Buttons - outside ScrollView, high zIndex */}
+      {/* Bottom Action Bar - FIXED at bottom using flex layout, NOT absolute */}
       {hasSelection && (
-        <View style={styles.floatingBar} pointerEvents="box-none">
+        <View style={styles.bottomBar}>
           <TouchableOpacity
             onPress={handleClearSelection}
             activeOpacity={0.7}
-            style={styles.floatingBtnBack}
+            style={styles.btnBack}
           >
             <MaterialIcons name="refresh" size={22} color="#FFF" />
-            <Text style={styles.floatingBtnBackText}>BACK</Text>
+            <Text style={styles.btnBackText}>BACK</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={fleetComplete ? handleConfirm : undefined}
-            activeOpacity={fleetComplete ? 0.7 : 1}
-            style={[
-              styles.floatingBtnOk,
-              !fleetComplete && styles.floatingBtnOkDisabled,
-            ]}
-          >
-            {fleetComplete ? (
-              <>
-                <MaterialIcons name="play-arrow" size={24} color="#000" />
-                <Text style={styles.floatingBtnOkText}>OK</Text>
-              </>
-            ) : (
-              <Text style={styles.floatingBtnOkTextDisabled}>
-                {selectedShips.length}/{FLEET_SIZE}
+          {fleetComplete ? (
+            <TouchableOpacity
+              onPress={handleConfirm}
+              activeOpacity={0.7}
+              style={styles.btnOk}
+            >
+              <MaterialIcons name="play-arrow" size={26} color="#000" />
+              <Text style={styles.btnOkText}>START</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.btnOkDisabled}>
+              <Text style={styles.btnOkTextDisabled}>
+                {selectedShips.length} / {FLEET_SIZE}
               </Text>
-            )}
-          </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
     </ScreenContainer>
@@ -339,11 +334,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#333",
   },
+  // ScrollView container
+  scrollContainer: {
+    flex: 1,
+  },
   // Ship list
   shipList: {
     padding: 16,
     gap: 10,
-    paddingBottom: 40,
+    paddingBottom: 16,
   },
   shipCard: {
     backgroundColor: "#0E0E0E",
@@ -397,67 +396,62 @@ const styles = StyleSheet.create({
   adContainer: {
     marginTop: 8,
   },
-  // Floating action buttons
-  floatingBar: {
-    position: "absolute",
-    bottom: 28,
-    left: 16,
-    right: 16,
+  // Bottom action bar - flex layout, NOT absolute
+  bottomBar: {
     flexDirection: "row",
     gap: 12,
-    zIndex: 999,
-    elevation: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingBottom: 24,
+    backgroundColor: "#050505",
+    borderTopWidth: 1,
+    borderTopColor: "#1A1A1A",
   },
-  floatingBtnBack: {
+  btnBack: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     backgroundColor: "#1A1A1A",
-    paddingVertical: 18,
-    borderRadius: 16,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#333",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 12,
   },
-  floatingBtnBackText: {
+  btnBackText: {
     fontSize: 15,
     fontWeight: "900",
     color: "#FFF",
     letterSpacing: 2,
   },
-  floatingBtnOk: {
-    flex: 1.2,
+  btnOk: {
+    flex: 1.3,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
     backgroundColor: "#FFF",
-    paddingVertical: 18,
-    borderRadius: 16,
-    shadowColor: "#FFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
   },
-  floatingBtnOkDisabled: {
+  btnOkDisabled: {
+    flex: 1.3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     backgroundColor: "#222",
-    shadowOpacity: 0,
-    elevation: 4,
+    paddingVertical: 16,
+    borderRadius: 14,
   },
-  floatingBtnOkText: {
+  btnOkText: {
     fontSize: 18,
     fontWeight: "900",
     color: "#000",
     letterSpacing: 3,
   },
-  floatingBtnOkTextDisabled: {
+  btnOkTextDisabled: {
     fontSize: 15,
     fontWeight: "900",
     color: "#555",

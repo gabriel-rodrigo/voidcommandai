@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  Pressable,
+  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
@@ -112,20 +112,18 @@ export default function WaitingRoomScreen() {
 
   return (
     <ScreenContainer
-      edges={["top", "bottom", "left", "right"]}
+      edges={["top", "left", "right"]}
       containerClassName="bg-[#050505]"
     >
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
+        <TouchableOpacity
           onPress={handleLeave}
-          style={({ pressed }) => [
-            styles.backBtn,
-            pressed && { opacity: 0.6 },
-          ]}
+          style={styles.backBtn}
+          activeOpacity={0.6}
         >
           <MaterialIcons name="arrow-back" size={24} color="#FFF" />
-        </Pressable>
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
             {isWaiting ? "WAITING ROOM" : "SELECT FLEET"}
@@ -202,14 +200,14 @@ export default function WaitingRoomScreen() {
               {SHIP_TYPES_LIST.map((ship) => {
                 const isSelected = selectedShips.includes(ship.id);
                 return (
-                  <Pressable
+                  <TouchableOpacity
                     key={ship.id}
                     onPress={() => handleToggleShip(ship.id)}
                     disabled={isReady}
-                    style={({ pressed }) => [
+                    activeOpacity={0.75}
+                    style={[
                       styles.shipCard,
                       isSelected && styles.shipCardSelected,
-                      pressed && { opacity: 0.7 },
                       isReady && { opacity: 0.5 },
                     ]}
                   >
@@ -238,7 +236,7 @@ export default function WaitingRoomScreen() {
                     <Text style={styles.shipDesc} numberOfLines={2}>
                       {ship.description}
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -260,47 +258,40 @@ export default function WaitingRoomScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Action Buttons (ship selection phase, not ready yet) */}
+      {/* Bottom Action Bar - flex layout, NOT absolute */}
       {isSelecting && !isReady && hasSelection && (
-        <View style={styles.floatingBar}>
-          <Pressable
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
             onPress={handleClearSelection}
-            style={({ pressed }) => [
-              styles.floatingBtnBack,
-              pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
-            ]}
+            activeOpacity={0.7}
+            style={styles.btnBack}
           >
-            <MaterialIcons name="refresh" size={20} color="#FFF" />
-            <Text style={styles.floatingBtnBackText}>BACK</Text>
-          </Pressable>
+            <MaterialIcons name="refresh" size={22} color="#FFF" />
+            <Text style={styles.btnBackText}>BACK</Text>
+          </TouchableOpacity>
 
-          <Pressable
-            onPress={handleReady}
-            disabled={!fleetComplete}
-            style={({ pressed }) => [
-              styles.floatingBtnOk,
-              !fleetComplete && styles.floatingBtnOkDisabled,
-              pressed && fleetComplete && { opacity: 0.8, transform: [{ scale: 0.97 }] },
-            ]}
-          >
-            <Text
-              style={[
-                styles.floatingBtnOkText,
-                !fleetComplete && styles.floatingBtnOkTextDisabled,
-              ]}
+          {fleetComplete ? (
+            <TouchableOpacity
+              onPress={handleReady}
+              activeOpacity={0.7}
+              style={styles.btnOk}
             >
-              {fleetComplete ? "OK" : `${selectedShips.length}/${FLEET_SIZE}`}
-            </Text>
-            {fleetComplete && (
-              <MaterialIcons name="check-circle" size={20} color="#000" />
-            )}
-          </Pressable>
+              <MaterialIcons name="check-circle" size={22} color="#000" />
+              <Text style={styles.btnOkText}>READY</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.btnOkDisabled}>
+              <Text style={styles.btnOkTextDisabled}>
+                {selectedShips.length} / {FLEET_SIZE}
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
       {/* Waiting for opponent ready state */}
       {isSelecting && isReady && (
-        <View style={styles.floatingBar}>
+        <View style={styles.bottomBar}>
           <View style={styles.waitingReady}>
             <ActivityIndicator size="small" color="#EF4444" />
             <Text style={styles.waitingReadyText}>
@@ -323,7 +314,14 @@ const styles = StyleSheet.create({
     borderBottomColor: "#111",
     gap: 12,
   },
-  backBtn: { padding: 4 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerCenter: { flex: 1, gap: 2 },
   headerTitle: {
     fontSize: 16,
@@ -358,7 +356,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   scrollContent: { flex: 1 },
-  scrollInner: { paddingBottom: 120 },
+  scrollInner: { paddingBottom: 16 },
   playersSection: {
     padding: 16,
     gap: 12,
@@ -511,40 +509,37 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     letterSpacing: 4,
   },
-  // Floating action buttons
-  floatingBar: {
-    position: "absolute",
-    bottom: 32,
-    left: 16,
-    right: 16,
+  // Bottom action bar - flex layout, NOT absolute
+  bottomBar: {
     flexDirection: "row",
     gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingBottom: 24,
+    backgroundColor: "#050505",
+    borderTopWidth: 1,
+    borderTopColor: "#1A1A1A",
   },
-  floatingBtnBack: {
+  btnBack: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "rgba(30,30,30,0.95)",
+    backgroundColor: "#1A1A1A",
     paddingVertical: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#333",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  floatingBtnBackText: {
-    fontSize: 14,
+  btnBackText: {
+    fontSize: 15,
     fontWeight: "900",
     color: "#FFF",
     letterSpacing: 2,
   },
-  floatingBtnOk: {
-    flex: 1,
+  btnOk: {
+    flex: 1.3,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -552,25 +547,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     paddingVertical: 16,
     borderRadius: 14,
-    shadowColor: "#FFF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  floatingBtnOkDisabled: {
-    backgroundColor: "#333",
-    shadowOpacity: 0,
-    elevation: 0,
+  btnOkDisabled: {
+    flex: 1.3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#222",
+    paddingVertical: 16,
+    borderRadius: 14,
   },
-  floatingBtnOkText: {
-    fontSize: 14,
+  btnOkText: {
+    fontSize: 18,
     fontWeight: "900",
     color: "#000",
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
-  floatingBtnOkTextDisabled: {
-    color: "#666",
+  btnOkTextDisabled: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#555",
+    letterSpacing: 2,
   },
   waitingReady: {
     flex: 1,
@@ -578,16 +576,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "rgba(30,30,30,0.95)",
+    backgroundColor: "#1A1A1A",
     paddingVertical: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#222",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
   },
   waitingReadyText: {
     fontSize: 13,

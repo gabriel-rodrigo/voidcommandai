@@ -44,3 +44,4 @@
 - [x] Fix bug: cannot start game after selecting fleet in Shipyard
 - [x] Add visible SHIPYARD title to the fleet selection screen
 - [x] Adjust element sizes and improve OK/BACK button layout on Shipyard
+- [x] Fix critical bug: game does not start after selecting fleet in Shipyard (second report)
