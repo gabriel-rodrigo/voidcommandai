@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, scores, InsertScore } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,154 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── Leaderboard Queries ────────────────────────────────────────────────────
+
+/**
+ * Submit a new score entry to the leaderboard.
+ */
+export async function submitScore(data: InsertScore): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(scores).values(data);
+  return Number((result as any)[0]?.insertId ?? (result as any).insertId ?? 0);
+}
+
+/**
+ * Get the global leaderboard: top players ranked by their best single-match score.
+ * Returns up to `limit` entries.
+ */
+export async function getGlobalLeaderboard(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      userId: scores.userId,
+      playerName: scores.playerName,
+      bestScore: sql<number>`MAX(${scores.score})`.as("bestScore"),
+      totalGames: sql<number>`COUNT(*)`.as("totalGames"),
+      totalWins: sql<number>`SUM(CASE WHEN ${scores.result} = 'victory' THEN 1 ELSE 0 END)`.as("totalWins"),
+      totalDamage: sql<number>`SUM(${scores.damageDealt})`.as("totalDamage"),
+    })
+    .from(scores)
+    .groupBy(scores.userId, scores.playerName)
+    .orderBy(sql`bestScore DESC`)
+    .limit(limit);
+
+  return rows;
+}
+
+/**
+ * Get leaderboard filtered by difficulty.
+ */
+export async function getLeaderboardByDifficulty(
+  difficulty: "easy" | "normal" | "hard",
+  limit = 50
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      userId: scores.userId,
+      playerName: scores.playerName,
+      bestScore: sql<number>`MAX(${scores.score})`.as("bestScore"),
+      totalGames: sql<number>`COUNT(*)`.as("totalGames"),
+      totalWins: sql<number>`SUM(CASE WHEN ${scores.result} = 'victory' THEN 1 ELSE 0 END)`.as("totalWins"),
+      totalDamage: sql<number>`SUM(${scores.damageDealt})`.as("totalDamage"),
+    })
+    .from(scores)
+    .where(eq(scores.difficulty, difficulty))
+    .groupBy(scores.userId, scores.playerName)
+    .orderBy(sql`bestScore DESC`)
+    .limit(limit);
+
+  return rows;
+}
+
+/**
+ * Get recent high scores (individual match scores, most recent first).
+ */
+export async function getRecentScores(limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      id: scores.id,
+      playerName: scores.playerName,
+      score: scores.score,
+      difficulty: scores.difficulty,
+      result: scores.result,
+      turns: scores.turns,
+      damageDealt: scores.damageDealt,
+      shipsDestroyed: scores.shipsDestroyed,
+      shipsLost: scores.shipsLost,
+      createdAt: scores.createdAt,
+    })
+    .from(scores)
+    .orderBy(desc(scores.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Get a specific player's scores and rank.
+ */
+export async function getPlayerStats(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  // Get player's best score
+  const playerScores = await db
+    .select({
+      bestScore: sql<number>`MAX(${scores.score})`.as("bestScore"),
+      totalGames: sql<number>`COUNT(*)`.as("totalGames"),
+      totalWins: sql<number>`SUM(CASE WHEN ${scores.result} = 'victory' THEN 1 ELSE 0 END)`.as("totalWins"),
+      totalDamage: sql<number>`SUM(${scores.damageDealt})`.as("totalDamage"),
+      totalShipsDestroyed: sql<number>`SUM(${scores.shipsDestroyed})`.as("totalShipsDestroyed"),
+    })
+    .from(scores)
+    .where(eq(scores.userId, userId));
+
+  if (!playerScores.length || playerScores[0].totalGames === 0) return null;
+
+  const stats = playerScores[0];
+
+  // Compute rank: count distinct players with a higher best score
+  const rankResult = await db
+    .select({
+      rank: sql<number>`COUNT(DISTINCT ${scores.userId}) + 1`.as("rank"),
+    })
+    .from(scores)
+    .where(sql`${scores.userId} != ${userId}`)
+    .having(sql`MAX(${scores.score}) > ${stats.bestScore}`);
+
+  const rank = rankResult.length > 0 ? Number(rankResult[0].rank) : 1;
+
+  // Get recent matches
+  const recentMatches = await db
+    .select({
+      id: scores.id,
+      score: scores.score,
+      difficulty: scores.difficulty,
+      result: scores.result,
+      turns: scores.turns,
+      damageDealt: scores.damageDealt,
+      createdAt: scores.createdAt,
+    })
+    .from(scores)
+    .where(eq(scores.userId, userId))
+    .orderBy(desc(scores.createdAt))
+    .limit(10);
+
+  return {
+    rank,
+    bestScore: stats.bestScore,
+    totalGames: stats.totalGames,
+    totalWins: stats.totalWins,
+    totalDamage: stats.totalDamage,
+    totalShipsDestroyed: stats.totalShipsDestroyed,
+    recentMatches,
+  };
+}

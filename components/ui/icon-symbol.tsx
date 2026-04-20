@@ -16,6 +16,7 @@ const MAPPING = {
   "chart.bar.fill": "bar-chart",
   "play.fill": "play-arrow",
   "arrow.left": "arrow-back",
+  "trophy.fill": "emoji-events",
 } as IconMapping;
 
 export function IconSymbol({

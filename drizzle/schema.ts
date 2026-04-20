@@ -2,16 +2,9 @@ import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-or
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
  */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -25,4 +18,34 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Leaderboard scores table.
+ * Each row represents a single match result submitted by a player.
+ * The ranking is computed from the aggregate score per player.
+ */
+export const scores = mysqlTable("scores", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Reference to the user who played */
+  userId: int("userId").notNull(),
+  /** Display name chosen by the player (can differ from auth name) */
+  playerName: varchar("playerName", { length: 64 }).notNull(),
+  /** Computed score for this match: damage * multiplier - penalties */
+  score: int("score").notNull(),
+  /** Difficulty of the match */
+  difficulty: mysqlEnum("difficulty", ["easy", "normal", "hard"]).notNull(),
+  /** Match result */
+  result: mysqlEnum("result", ["victory", "defeat", "draw"]).notNull(),
+  /** Number of turns the match lasted */
+  turns: int("turns").notNull(),
+  /** Damage dealt by the player in this match */
+  damageDealt: int("damageDealt").notNull(),
+  /** Ships destroyed by the player */
+  shipsDestroyed: int("shipsDestroyed").notNull(),
+  /** Ships lost by the player */
+  shipsLost: int("shipsLost").notNull(),
+  /** When this score was submitted */
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Score = typeof scores.$inferSelect;
+export type InsertScore = typeof scores.$inferInsert;

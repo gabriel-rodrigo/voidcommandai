@@ -19,4 +19,10 @@
 - [x] Implement powerup shop system
 - [x] Add damage popups and visual effects
 - [x] Navigation flow between all screens
-- [ ] Publish to GitHub repository
+- [x] Publish to GitHub repository
+- [x] Create leaderboard database schema (scores table)
+- [x] Implement tRPC routes for submitting scores and fetching rankings
+- [x] Create Leaderboard tab screen with ranking list
+- [x] Integrate score submission after each match
+- [x] Add player name input for leaderboard
+- [x] Add ranking position indicators and visual polish

@@ -1,10 +1,13 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
+  TextInput,
   StyleSheet,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -17,9 +20,16 @@ import {
   addMatchToHistory,
 } from "@/lib/services/storage";
 import { Difficulty, MatchHistoryEntry, UserStats } from "@/lib/game/types";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+
+const PLAYER_NAME_KEY = "@voidcommand_player_name";
 
 export default function ResultsScreen() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const params = useLocalSearchParams<{
     result: string;
     turns: string;
@@ -38,8 +48,28 @@ export default function ResultsScreen() {
   const aiShipsLost = parseInt(params.aiShipsLost ?? "0", 10);
   const difficulty = (params.difficulty ?? "normal") as Difficulty;
 
+  const [playerName, setPlayerName] = useState("");
+  const [scoreSubmitted, setScoreSubmitted] = useState(false);
+  const [submittedScore, setSubmittedScore] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const savedLocalRef = useRef(false);
+
+  const submitMutation = trpc.leaderboard.submitScore.useMutation();
+
+  // Load saved player name
   useEffect(() => {
-    // Save match stats
+    AsyncStorage.getItem(PLAYER_NAME_KEY).then((name) => {
+      if (name) setPlayerName(name);
+      else if (user?.name) setPlayerName(user.name);
+    });
+  }, [user]);
+
+  // Save local stats
+  useEffect(() => {
+    if (savedLocalRef.current) return;
+    savedLocalRef.current = true;
+
     const saveMatchData = async () => {
       try {
         const stats = await getStats();
@@ -89,6 +119,42 @@ export default function ResultsScreen() {
     loadInterstitial();
   }, []);
 
+  const handleSubmitScore = async () => {
+    if (!playerName.trim() || !isAuthenticated) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // Save player name for future use
+      await AsyncStorage.setItem(PLAYER_NAME_KEY, playerName.trim());
+
+      const res = await submitMutation.mutateAsync({
+        playerName: playerName.trim(),
+        difficulty: difficulty as "easy" | "normal" | "hard",
+        result,
+        turns,
+        damageDealt: playerDamage,
+        shipsDestroyed: aiShipsLost,
+        shipsLost: playerShipsLost,
+      });
+
+      setSubmittedScore(res.score);
+      setScoreSubmitted(true);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (e: any) {
+      if (e?.data?.code === "UNAUTHORIZED") {
+        setSubmitError("Login required to submit scores");
+      } else {
+        setSubmitError("Failed to submit score. Try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handlePlayAgain = async () => {
     await showInterstitial();
     router.replace({
@@ -100,6 +166,10 @@ export default function ResultsScreen() {
   const handleReturnMenu = async () => {
     await showInterstitial();
     router.replace("/(tabs)");
+  };
+
+  const handleViewLeaderboard = () => {
+    router.replace("/(tabs)/leaderboard" as any);
   };
 
   const resultConfig = {
@@ -129,7 +199,10 @@ export default function ResultsScreen() {
   const config = resultConfig[result];
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#050505]">
+    <ScreenContainer
+      edges={["top", "bottom", "left", "right"]}
+      containerClassName="bg-[#050505]"
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -137,7 +210,10 @@ export default function ResultsScreen() {
         {/* Result Header */}
         <View style={[styles.resultHeader, { backgroundColor: config.bg }]}>
           <View
-            style={[styles.resultIcon, { backgroundColor: config.color + "20" }]}
+            style={[
+              styles.resultIcon,
+              { backgroundColor: config.color + "20" },
+            ]}
           >
             <MaterialIcons name={config.icon} size={40} color={config.color} />
           </View>
@@ -153,13 +229,11 @@ export default function ResultsScreen() {
         {/* Stats Comparison */}
         <View style={styles.statsSection}>
           <Text style={styles.statsTitle}>BATTLE REPORT</Text>
-
           <View style={styles.statsHeader}>
             <Text style={styles.statsHeaderLabel}>YOU</Text>
             <Text style={styles.statsHeaderCenter}>STAT</Text>
             <Text style={styles.statsHeaderLabel}>AI</Text>
           </View>
-
           <StatRow
             label="Damage"
             left={playerDamage}
@@ -179,6 +253,89 @@ export default function ResultsScreen() {
             leftWins={aiShipsLost > playerShipsLost}
           />
         </View>
+
+        {/* Score Submission */}
+        {isAuthenticated && !scoreSubmitted && (
+          <View style={styles.submitSection}>
+            <Text style={styles.submitTitle}>SUBMIT TO LEADERBOARD</Text>
+            <View style={styles.nameInputRow}>
+              <TextInput
+                style={styles.nameInput}
+                value={playerName}
+                onChangeText={setPlayerName}
+                placeholder="Your callsign..."
+                placeholderTextColor="#444"
+                maxLength={32}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmitScore}
+              />
+              <Pressable
+                onPress={handleSubmitScore}
+                disabled={isSubmitting || !playerName.trim()}
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  (!playerName.trim() || isSubmitting) &&
+                    styles.submitBtnDisabled,
+                  pressed &&
+                    playerName.trim() &&
+                    !isSubmitting && {
+                      opacity: 0.8,
+                      transform: [{ scale: 0.97 }],
+                    },
+                ]}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text
+                    style={[
+                      styles.submitBtnText,
+                      (!playerName.trim() || isSubmitting) &&
+                        styles.submitBtnTextDisabled,
+                    ]}
+                  >
+                    SUBMIT
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            {submitError && (
+              <Text style={styles.submitError}>{submitError}</Text>
+            )}
+          </View>
+        )}
+
+        {/* Score Submitted Confirmation */}
+        {scoreSubmitted && submittedScore !== null && (
+          <View style={styles.scoreConfirmation}>
+            <MaterialIcons name="check-circle" size={24} color="#22C55E" />
+            <View style={styles.scoreConfirmInfo}>
+              <Text style={styles.scoreConfirmTitle}>Score Submitted!</Text>
+              <Text style={styles.scoreConfirmValue}>
+                {submittedScore.toLocaleString()} pts
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleViewLeaderboard}
+              style={({ pressed }) => [
+                styles.viewRankBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.viewRankBtnText}>VIEW RANKING</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Not authenticated hint */}
+        {!isAuthenticated && (
+          <View style={styles.loginHint}>
+            <MaterialIcons name="person-outline" size={20} color="#555" />
+            <Text style={styles.loginHintText}>
+              Log in to submit your score to the global leaderboard
+            </Text>
+          </View>
+        )}
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -227,12 +384,7 @@ function StatRow({
 }) {
   return (
     <View style={statRowStyles.container}>
-      <Text
-        style={[
-          statRowStyles.value,
-          leftWins && statRowStyles.winner,
-        ]}
-      >
+      <Text style={[statRowStyles.value, leftWins && statRowStyles.winner]}>
         {left}
       </Text>
       <Text style={statRowStyles.label}>{label}</Text>
@@ -340,6 +492,111 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#444",
     letterSpacing: 2,
+  },
+  // Score Submission
+  submitSection: {
+    gap: 10,
+  },
+  submitTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#555",
+    letterSpacing: 3,
+    textAlign: "center",
+  },
+  nameInputRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+    backgroundColor: "#111",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFF",
+    borderWidth: 1,
+    borderColor: "#222",
+  },
+  submitBtn: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitBtnDisabled: {
+    backgroundColor: "#222",
+  },
+  submitBtnText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#000",
+    letterSpacing: 1,
+  },
+  submitBtnTextDisabled: {
+    color: "#555",
+  },
+  submitError: {
+    fontSize: 11,
+    color: "#EF4444",
+    textAlign: "center",
+  },
+  // Score Confirmation
+  scoreConfirmation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(34,197,94,0.08)",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.15)",
+  },
+  scoreConfirmInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  scoreConfirmTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#22C55E",
+  },
+  scoreConfirmValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#FFF",
+  },
+  viewRankBtn: {
+    backgroundColor: "rgba(34,197,94,0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  viewRankBtnText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#22C55E",
+    letterSpacing: 1,
+  },
+  // Login hint
+  loginHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#111",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#1a1a1a",
+  },
+  loginHintText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 18,
   },
   actions: {
     gap: 10,
