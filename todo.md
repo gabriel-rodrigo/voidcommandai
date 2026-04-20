@@ -1,0 +1,22 @@
+# Project TODO
+
+- [x] Configure dark theme colors (space/combat theme)
+- [x] Generate app logo and configure branding
+- [x] Implement game domain layer (types, constants, engine)
+- [x] Implement AI opponent logic (easy, normal, hard)
+- [x] Create Main Menu screen
+- [x] Create Difficulty Select screen
+- [x] Create Shipyard (Fleet Selection) screen
+- [x] Create Battle screen with SVG canvas
+- [x] Implement touch-based ship selection and action programming
+- [x] Implement battle execution phase rendering (movement, bullets, particles)
+- [x] Create Results screen (Victory/Defeat/Draw)
+- [x] Create Settings screen (audio controls)
+- [x] Create Stats screen (game history)
+- [ ] Implement audio system (background music, SFX)
+- [x] Implement local storage for settings and stats
+- [x] Implement AdMob integration architecture (banner, interstitial, rewarded)
+- [x] Implement powerup shop system
+- [x] Add damage popups and visual effects
+- [x] Navigation flow between all screens
+- [ ] Publish to GitHub repository
