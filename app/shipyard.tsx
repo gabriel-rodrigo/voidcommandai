@@ -5,20 +5,19 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { ScreenContainer } from "@/components/screen-container";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdBanner } from "@/components/game/AdBanner";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SHIP_TYPES_LIST, FLEET_SIZE } from "@/lib/game/constants";
 import * as Haptics from "expo-haptics";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 export default function ShipyardScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { difficulty = "normal" } = useLocalSearchParams<{
     difficulty: string;
   }>();
@@ -62,11 +61,11 @@ export default function ShipyardScreen() {
   const fleetComplete = selectedShips.length === FLEET_SIZE;
 
   return (
-    <ScreenContainer
-      edges={["top", "left", "right"]}
-      containerClassName="bg-[#050505]"
-    >
-      {/* Header with back button */}
+    <View style={[styles.root, { backgroundColor: "#050505" }]}>
+      {/* Top safe area */}
+      <View style={{ height: insets.top, backgroundColor: "#050505" }} />
+
+      {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -75,46 +74,29 @@ export default function ShipyardScreen() {
         >
           <MaterialIcons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.headerTextBlock}>
-          <Text style={styles.headerSub}>
-            {difficulty.toUpperCase()} MODE
-          </Text>
-        </View>
+        <Text style={styles.headerSub}>{(difficulty as string).toUpperCase()} MODE</Text>
       </View>
 
       {/* Big Title */}
       <View style={styles.titleSection}>
         <Text style={styles.bigTitle}>SHIPYARD</Text>
-        <Text style={styles.titleSub}>
-          Select {FLEET_SIZE} ships for your fleet
-        </Text>
+        <Text style={styles.titleSub}>Select {FLEET_SIZE} ships for your fleet</Text>
       </View>
 
       {/* Fleet slots */}
       <View style={styles.slotsRow}>
         {Array.from({ length: FLEET_SIZE }).map((_, i) => {
           const shipId = selectedShips[i];
-          const ship = shipId
-            ? SHIP_TYPES_LIST.find((s) => s.id === shipId)
-            : null;
+          const ship = shipId ? SHIP_TYPES_LIST.find((s) => s.id === shipId) : null;
           return (
             <View
               key={i}
-              style={[
-                styles.slot,
-                ship ? styles.slotFilled : styles.slotEmpty,
-              ]}
+              style={[styles.slot, ship ? styles.slotFilled : styles.slotEmpty]}
             >
               {ship ? (
                 <>
-                  <MaterialIcons
-                    name="rocket-launch"
-                    size={14}
-                    color="#EF4444"
-                  />
-                  <Text style={styles.slotName} numberOfLines={1}>
-                    {ship.name}
-                  </Text>
+                  <MaterialIcons name="rocket-launch" size={12} color="#EF4444" />
+                  <Text style={styles.slotName} numberOfLines={1}>{ship.name}</Text>
                 </>
               ) : (
                 <Text style={styles.slotPlaceholder}>{i + 1}</Text>
@@ -124,11 +106,12 @@ export default function ShipyardScreen() {
         })}
       </View>
 
-      {/* Ship list - flex: 1 to fill remaining space */}
+      {/* Ship list */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.shipList}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {SHIP_TYPES_LIST.map((ship) => {
           const isSelected = selectedShips.includes(ship.id);
@@ -137,10 +120,7 @@ export default function ShipyardScreen() {
               key={ship.id}
               onPress={() => toggleShip(ship.id)}
               activeOpacity={0.75}
-              style={[
-                styles.shipCard,
-                isSelected && styles.shipCardSelected,
-              ]}
+              style={[styles.shipCard, isSelected && styles.shipCardSelected]}
             >
               <View style={styles.shipCardHeader}>
                 <View style={styles.shipNameRow}>
@@ -149,12 +129,7 @@ export default function ShipyardScreen() {
                     size={18}
                     color={isSelected ? "#EF4444" : "#555"}
                   />
-                  <Text
-                    style={[
-                      styles.shipName,
-                      isSelected && styles.shipNameSelected,
-                    ]}
-                  >
+                  <Text style={[styles.shipName, isSelected && styles.shipNameSelected]}>
                     {ship.name}
                   </Text>
                 </View>
@@ -164,11 +139,7 @@ export default function ShipyardScreen() {
                   </View>
                 )}
               </View>
-
-              <Text style={styles.shipDesc} numberOfLines={2}>
-                {ship.description}
-              </Text>
-
+              <Text style={styles.shipDesc} numberOfLines={2}>{ship.description}</Text>
               <View style={styles.statsRow}>
                 <MiniStat label="HP" value={ship.life} color="#22C55E" />
                 <MiniStat label="SPD" value={ship.speed} color="#3B82F6" />
@@ -180,54 +151,60 @@ export default function ShipyardScreen() {
           );
         })}
 
-        <View style={styles.adContainer} pointerEvents="none">
+        <View pointerEvents="none" style={styles.adContainer}>
           <AdBanner size="small" />
         </View>
       </ScrollView>
 
-      {/* Bottom Action Bar - FIXED at bottom using flex layout, NOT absolute */}
-      {hasSelection && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            onPress={handleClearSelection}
-            activeOpacity={0.7}
-            style={styles.btnBack}
-          >
-            <MaterialIcons name="refresh" size={22} color="#FFF" />
-            <Text style={styles.btnBackText}>BACK</Text>
-          </TouchableOpacity>
-
-          {fleetComplete ? (
+      {/* ── Bottom Action Bar ── always rendered, height changes with selection */}
+      <View
+        style={[
+          styles.bottomBar,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
+        {hasSelection ? (
+          <>
+            {/* BACK button */}
             <TouchableOpacity
-              onPress={handleConfirm}
+              onPress={handleClearSelection}
               activeOpacity={0.7}
-              style={styles.btnOk}
+              style={styles.btnBack}
             >
-              <MaterialIcons name="play-arrow" size={26} color="#000" />
-              <Text style={styles.btnOkText}>START</Text>
+              <MaterialIcons name="refresh" size={22} color="#FFF" />
+              <Text style={styles.btnBackText}>BACK</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.btnOkDisabled}>
-              <Text style={styles.btnOkTextDisabled}>
-                {selectedShips.length} / {FLEET_SIZE}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-    </ScreenContainer>
+
+            {/* OK / counter button */}
+            <TouchableOpacity
+              onPress={fleetComplete ? handleConfirm : undefined}
+              activeOpacity={fleetComplete ? 0.7 : 1}
+              style={[styles.btnOk, !fleetComplete && styles.btnOkDisabled]}
+            >
+              {fleetComplete ? (
+                <>
+                  <MaterialIcons name="play-arrow" size={26} color="#000" />
+                  <Text style={styles.btnOkText}>START</Text>
+                </>
+              ) : (
+                <Text style={styles.btnOkTextDisabled}>
+                  {selectedShips.length} / {FLEET_SIZE}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          /* Placeholder so layout doesn't jump */
+          <View style={styles.bottomPlaceholder}>
+            <Text style={styles.bottomHint}>Select ships above to begin</Text>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
-function MiniStat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View style={miniStyles.container}>
       <Text style={[miniStyles.label, { color }]}>{label}</Text>
@@ -237,24 +214,15 @@ function MiniStat({
 }
 
 const miniStyles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    gap: 2,
-    minWidth: 36,
-  },
-  label: {
-    fontSize: 8,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  value: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#CCC",
-  },
+  container: { alignItems: "center", gap: 2, minWidth: 36 },
+  label: { fontSize: 8, fontWeight: "900", letterSpacing: 1 },
+  value: { fontSize: 12, fontWeight: "700", color: "#CCC" },
 });
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -271,16 +239,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTextBlock: {
-    flex: 1,
-  },
   headerSub: {
     fontSize: 11,
     fontWeight: "800",
     color: "#555",
     letterSpacing: 2,
   },
-  // Big title section
   titleSection: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -297,7 +261,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 2,
   },
-  // Fleet slots
   slotsRow: {
     flexDirection: "row",
     gap: 8,
@@ -334,11 +297,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#333",
   },
-  // ScrollView container
   scrollContainer: {
     flex: 1,
   },
-  // Ship list
   shipList: {
     padding: 16,
     gap: 10,
@@ -372,9 +333,7 @@ const styles = StyleSheet.create({
     color: "#FFF",
     letterSpacing: 1,
   },
-  shipNameSelected: {
-    color: "#EF4444",
-  },
+  shipNameSelected: { color: "#EF4444" },
   checkBadge: {
     width: 22,
     height: 22,
@@ -393,19 +352,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingTop: 4,
   },
-  adContainer: {
-    marginTop: 8,
-  },
-  // Bottom action bar - flex layout, NOT absolute
+  adContainer: { marginTop: 8 },
+  // ── Bottom bar ──
   bottomBar: {
     flexDirection: "row",
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingBottom: 24,
-    backgroundColor: "#050505",
+    paddingTop: 14,
+    backgroundColor: "#0A0A0A",
     borderTopWidth: 1,
     borderTopColor: "#1A1A1A",
+    minHeight: 80,
   },
   btnBack: {
     flex: 1,
@@ -436,14 +393,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   btnOkDisabled: {
-    flex: 1.3,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#222",
-    paddingVertical: 16,
-    borderRadius: 14,
+    backgroundColor: "#1E1E1E",
+    borderWidth: 1,
+    borderColor: "#333",
   },
   btnOkText: {
     fontSize: 18,
@@ -456,5 +408,16 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#555",
     letterSpacing: 2,
+  },
+  bottomPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+  },
+  bottomHint: {
+    fontSize: 12,
+    color: "#333",
+    letterSpacing: 1,
   },
 });
