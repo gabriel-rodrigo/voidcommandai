@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -13,6 +14,7 @@ import { AdBanner } from "@/components/game/AdBanner";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SHIP_TYPES_LIST, FLEET_SIZE } from "@/lib/game/constants";
 import { ShipType, Difficulty } from "@/lib/game/types";
+import * as Haptics from "expo-haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -30,12 +32,18 @@ export default function ShipyardScreen() {
         if (prev.length >= FLEET_SIZE) return prev;
         return [...prev, shipId];
       });
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
     },
     []
   );
 
   const handleConfirm = () => {
     if (selectedShips.length !== FLEET_SIZE) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     router.push({
       pathname: "/battle",
       params: {
@@ -44,6 +52,16 @@ export default function ShipyardScreen() {
       },
     } as any);
   };
+
+  const handleBack = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedShips([]);
+  };
+
+  const hasSelection = selectedShips.length > 0;
+  const fleetComplete = selectedShips.length === FLEET_SIZE;
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#050505]">
@@ -148,36 +166,43 @@ export default function ShipyardScreen() {
         </View>
       </ScrollView>
 
-      {/* Confirm button */}
-      <View style={styles.footer}>
-        <Pressable
-          onPress={handleConfirm}
-          disabled={selectedShips.length !== FLEET_SIZE}
-          style={({ pressed }) => [
-            styles.confirmButton,
-            selectedShips.length !== FLEET_SIZE && styles.confirmDisabled,
-            pressed &&
-              selectedShips.length === FLEET_SIZE && {
-                opacity: 0.8,
-                transform: [{ scale: 0.97 }],
-              },
-          ]}
-        >
-          <Text
-            style={[
-              styles.confirmText,
-              selectedShips.length !== FLEET_SIZE && styles.confirmTextDisabled,
+      {/* Floating Action Buttons */}
+      {hasSelection && (
+        <View style={styles.floatingBar}>
+          <Pressable
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.floatingBtnBack,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
             ]}
           >
-            {selectedShips.length === FLEET_SIZE
-              ? "LAUNCH FLEET"
-              : `SELECT ${FLEET_SIZE - selectedShips.length} MORE`}
-          </Text>
-          {selectedShips.length === FLEET_SIZE && (
-            <MaterialIcons name="chevron-right" size={20} color="#000" />
-          )}
-        </Pressable>
-      </View>
+            <MaterialIcons name="refresh" size={20} color="#FFF" />
+            <Text style={styles.floatingBtnBackText}>BACK</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleConfirm}
+            disabled={!fleetComplete}
+            style={({ pressed }) => [
+              styles.floatingBtnOk,
+              !fleetComplete && styles.floatingBtnOkDisabled,
+              pressed && fleetComplete && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+            ]}
+          >
+            <Text
+              style={[
+                styles.floatingBtnOkText,
+                !fleetComplete && styles.floatingBtnOkTextDisabled,
+              ]}
+            >
+              {fleetComplete ? "OK" : `${selectedShips.length}/${FLEET_SIZE}`}
+            </Text>
+            {fleetComplete && (
+              <MaterialIcons name="chevron-right" size={20} color="#000" />
+            )}
+          </Pressable>
+        </View>
+      )}
     </ScreenContainer>
   );
 }
@@ -312,7 +337,7 @@ const styles = StyleSheet.create({
   shipList: {
     padding: 16,
     gap: 12,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   shipCard: {
     backgroundColor: "#111",
@@ -365,18 +390,41 @@ const styles = StyleSheet.create({
   adContainer: {
     marginTop: 8,
   },
-  footer: {
+  // Floating action buttons
+  floatingBar: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    paddingBottom: 32,
-    backgroundColor: "rgba(5,5,5,0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "#111",
+    bottom: 32,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 12,
   },
-  confirmButton: {
+  floatingBtnBack: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(30,30,30,0.95)",
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#333",
+    // Shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingBtnBackText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#FFF",
+    letterSpacing: 2,
+  },
+  floatingBtnOk: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -384,17 +432,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     paddingVertical: 16,
     borderRadius: 14,
+    // Shadow
+    shadowColor: "#FFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  confirmDisabled: {
-    backgroundColor: "#222",
+  floatingBtnOkDisabled: {
+    backgroundColor: "#333",
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  confirmText: {
+  floatingBtnOkText: {
     fontSize: 14,
     fontWeight: "900",
     color: "#000",
     letterSpacing: 2,
   },
-  confirmTextDisabled: {
-    color: "#555",
+  floatingBtnOkTextDisabled: {
+    color: "#666",
   },
 });

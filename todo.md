@@ -38,3 +38,6 @@
 - [x] Add back-to-menu button in multiplayer lobby
 - [x] Add password protection for multiplayer rooms
 - [x] Generate random room names automatically
+- [x] Add floating OK/BACK buttons on Shipyard (single player) fleet selection
+- [x] Add floating OK/BACK buttons on Waiting Room (multiplayer) fleet selection
+- [x] OK button starts the game, BACK button deselects all ships and allows re-selection

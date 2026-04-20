@@ -42,7 +42,6 @@ export default function WaitingRoomScreen() {
   // Navigate back if room is gone
   useEffect(() => {
     if (!roomState && !gameSnapshot) {
-      // Slight delay to avoid flash
       const t = setTimeout(() => {
         if (!roomState) router.back();
       }, 500);
@@ -75,12 +74,21 @@ export default function WaitingRoomScreen() {
   };
 
   const handleReady = () => {
-    if (selectedShips.length === 0) return;
-    setIsReady(true);
-    markReady();
+    if (selectedShips.length !== FLEET_SIZE) return;
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    setIsReady(true);
+    markReady();
+  };
+
+  const handleClearSelection = () => {
+    if (isReady) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedShips([]);
+    selectShips([]);
   };
 
   if (!roomState) {
@@ -97,11 +105,10 @@ export default function WaitingRoomScreen() {
     );
   }
 
-  const me = roomState.players.find((p) => p.id === roomState.hostId);
-  const opponent = roomState.players.find((p) => p.id !== roomState.hostId);
-  const isHost = me?.isHost ?? false;
   const isSelecting = roomState.status === "selecting";
   const isWaiting = roomState.status === "waiting";
+  const hasSelection = selectedShips.length > 0;
+  const fleetComplete = selectedShips.length === FLEET_SIZE;
 
   return (
     <ScreenContainer
@@ -193,8 +200,7 @@ export default function WaitingRoomScreen() {
             </Text>
             <View style={styles.shipsGrid}>
               {SHIP_TYPES_LIST.map((ship) => {
-                const count = selectedShips.filter((id) => id === ship.id).length;
-                const isSelected = count > 0;
+                const isSelected = selectedShips.includes(ship.id);
                 return (
                   <Pressable
                     key={ship.id}
@@ -254,26 +260,47 @@ export default function WaitingRoomScreen() {
         )}
       </ScrollView>
 
-      {/* Bottom Action */}
-      {isSelecting && !isReady && (
-        <View style={styles.bottomBar}>
+      {/* Floating Action Buttons (ship selection phase, not ready yet) */}
+      {isSelecting && !isReady && hasSelection && (
+        <View style={styles.floatingBar}>
           <Pressable
-            onPress={handleReady}
-            disabled={selectedShips.length === 0}
+            onPress={handleClearSelection}
             style={({ pressed }) => [
-              styles.readyBtn,
-              pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
-              selectedShips.length === 0 && { opacity: 0.3 },
+              styles.floatingBtnBack,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
             ]}
           >
-            <MaterialIcons name="check-circle" size={20} color="#000" />
-            <Text style={styles.readyBtnText}>READY</Text>
+            <MaterialIcons name="refresh" size={20} color="#FFF" />
+            <Text style={styles.floatingBtnBackText}>BACK</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleReady}
+            disabled={!fleetComplete}
+            style={({ pressed }) => [
+              styles.floatingBtnOk,
+              !fleetComplete && styles.floatingBtnOkDisabled,
+              pressed && fleetComplete && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+            ]}
+          >
+            <Text
+              style={[
+                styles.floatingBtnOkText,
+                !fleetComplete && styles.floatingBtnOkTextDisabled,
+              ]}
+            >
+              {fleetComplete ? "OK" : `${selectedShips.length}/${FLEET_SIZE}`}
+            </Text>
+            {fleetComplete && (
+              <MaterialIcons name="check-circle" size={20} color="#000" />
+            )}
           </Pressable>
         </View>
       )}
 
+      {/* Waiting for opponent ready state */}
       {isSelecting && isReady && (
-        <View style={styles.bottomBar}>
+        <View style={styles.floatingBar}>
           <View style={styles.waitingReady}>
             <ActivityIndicator size="small" color="#EF4444" />
             <Text style={styles.waitingReadyText}>
@@ -310,24 +337,34 @@ const styles = StyleSheet.create({
     color: "#555",
     letterSpacing: 1,
   },
-  connectionDot: { padding: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  scrollContent: { flex: 1 },
-  scrollInner: { paddingBottom: 120 },
+  connectionDot: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  scrollContent: { flex: 1 },
+  scrollInner: { paddingBottom: 120 },
+  playersSection: {
+    padding: 16,
     gap: 12,
   },
-  loadingText: { fontSize: 14, color: "#555" },
-  playersSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 10,
-  },
   sectionLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "900",
     color: "#555",
     letterSpacing: 2,
@@ -341,7 +378,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#111",
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
@@ -350,24 +387,23 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#DDD",
+    color: "#FFF",
     textAlign: "center",
   },
   playerSlot: {
     fontSize: 9,
-    fontWeight: "900",
-    color: "#444",
+    fontWeight: "800",
+    color: "#555",
     letterSpacing: 2,
   },
   readyBadge: {
     backgroundColor: "#22C55E",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   readyBadgeText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "900",
     color: "#FFF",
     letterSpacing: 1,
@@ -384,66 +420,73 @@ const styles = StyleSheet.create({
   },
   shipsSection: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    gap: 12,
+  },
+  shipsGrid: {
     gap: 10,
   },
-  shipsGrid: { gap: 8 },
   shipCard: {
     backgroundColor: "#111",
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
     borderColor: "#1a1a1a",
+    gap: 8,
   },
   shipCardSelected: {
-    borderColor: "#EF4444",
+    borderColor: "rgba(239,68,68,0.4)",
     backgroundColor: "rgba(239,68,68,0.05)",
   },
   shipHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
   },
   shipName: {
     fontSize: 15,
-    fontWeight: "800",
-    color: "#DDD",
+    fontWeight: "900",
+    color: "#FFF",
+    letterSpacing: 1,
   },
   selectedBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: "#EF4444",
-    width: 20,
-    height: 20,
-    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   shipStats: {
     flexDirection: "row",
     gap: 16,
-    marginBottom: 6,
   },
-  stat: { gap: 2 },
+  stat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   statLabel: {
-    fontSize: 8,
-    fontWeight: "900",
-    color: "#555",
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#666",
     letterSpacing: 1,
   },
   statValue: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#888",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#AAA",
   },
   shipDesc: {
     fontSize: 11,
-    color: "#444",
+    color: "#666",
     lineHeight: 15,
   },
   waitingSection: {
+    flex: 1,
     alignItems: "center",
-    paddingTop: 40,
+    justifyContent: "center",
     gap: 12,
+    paddingVertical: 60,
   },
   waitingTitle: {
     fontSize: 18,
@@ -460,52 +503,95 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#1a1a1a",
-    marginTop: 4,
+    borderColor: "#222",
   },
   codeText: {
     fontSize: 24,
     fontWeight: "900",
     color: "#EF4444",
-    letterSpacing: 6,
+    letterSpacing: 4,
   },
-  bottomBar: {
+  // Floating action buttons
+  floatingBar: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    paddingTop: 16,
-    backgroundColor: "rgba(5,5,5,0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "#111",
+    bottom: 32,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 12,
   },
-  readyBtn: {
+  floatingBtnBack: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    backgroundColor: "rgba(30,30,30,0.95)",
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#333",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingBtnBackText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#FFF",
+    letterSpacing: 2,
+  },
+  floatingBtnOk: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     backgroundColor: "#FFF",
     paddingVertical: 16,
     borderRadius: 14,
+    shadowColor: "#FFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  readyBtnText: {
+  floatingBtnOkDisabled: {
+    backgroundColor: "#333",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  floatingBtnOkText: {
     fontSize: 14,
     fontWeight: "900",
     color: "#000",
     letterSpacing: 2,
   },
+  floatingBtnOkTextDisabled: {
+    color: "#666",
+  },
   waitingReady: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
+    backgroundColor: "rgba(30,30,30,0.95)",
     paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#222",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   waitingReadyText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#666",
+    color: "#888",
   },
 });
