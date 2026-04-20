@@ -41,3 +41,6 @@
 - [x] Add floating OK/BACK buttons on Shipyard (single player) fleet selection
 - [x] Add floating OK/BACK buttons on Waiting Room (multiplayer) fleet selection
 - [x] OK button starts the game, BACK button deselects all ships and allows re-selection
+- [x] Fix bug: cannot start game after selecting fleet in Shipyard
+- [x] Add visible SHIPYARD title to the fleet selection screen
+- [x] Adjust element sizes and improve OK/BACK button layout on Shipyard
