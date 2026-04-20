@@ -28,8 +28,8 @@ export interface UseSocketReturn {
   gamePhase: { phase: string; turnTime: number; currentTurn: number } | null;
   gameFinished: { winner: number; snapshot: GameSnapshot } | null;
   error: string | null;
-  createRoom: (roomName: string, playerName: string) => Promise<{ ok: boolean; roomId?: string; error?: string }>;
-  joinRoom: (roomId: string, playerName: string) => Promise<{ ok: boolean; error?: string }>;
+  createRoom: (playerName: string, password?: string) => Promise<{ ok: boolean; roomId?: string; error?: string }>;
+  joinRoom: (roomId: string, playerName: string, password?: string) => Promise<{ ok: boolean; error?: string }>;
   leaveRoom: () => void;
   refreshRooms: () => void;
   selectShips: (ships: string[]) => void;
@@ -131,30 +131,38 @@ export function useSocket(): UseSocketReturn {
   }, []);
 
   const createRoom = useCallback(
-    (roomName: string, playerName: string): Promise<{ ok: boolean; roomId?: string; error?: string }> => {
+    (playerName: string, password?: string): Promise<{ ok: boolean; roomId?: string; error?: string }> => {
       return new Promise((resolve) => {
         if (!socketRef.current?.connected) {
           resolve({ ok: false, error: "Not connected" });
           return;
         }
-        socketRef.current.emit("room:create", { roomName, playerName }, (res) => {
-          resolve(res);
-        });
+        socketRef.current.emit(
+          "room:create",
+          { roomName: "", playerName, password },
+          (res) => {
+            resolve(res);
+          }
+        );
       });
     },
     []
   );
 
   const joinRoom = useCallback(
-    (roomId: string, playerName: string): Promise<{ ok: boolean; error?: string }> => {
+    (roomId: string, playerName: string, password?: string): Promise<{ ok: boolean; error?: string }> => {
       return new Promise((resolve) => {
         if (!socketRef.current?.connected) {
           resolve({ ok: false, error: "Not connected" });
           return;
         }
-        socketRef.current.emit("room:join", { roomId, playerName }, (res) => {
-          resolve(res);
-        });
+        socketRef.current.emit(
+          "room:join",
+          { roomId, playerName, password },
+          (res) => {
+            resolve(res);
+          }
+        );
       });
     },
     []

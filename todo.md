@@ -35,3 +35,6 @@
 - [x] Implement multiplayer results screen with score submission
 - [x] Add multiplayer option to main menu
 - [x] Unit tests for multiplayer logic
+- [x] Add back-to-menu button in multiplayer lobby
+- [x] Add password protection for multiplayer rooms
+- [x] Generate random room names automatically

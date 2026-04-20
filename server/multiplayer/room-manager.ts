@@ -31,6 +31,8 @@ interface ServerRoom {
   hostId: string;
   players: Map<string, RoomPlayer & { socketId: string }>;
   createdAt: number;
+  /** Optional password for the room (null = open) */
+  password: string | null;
   /** Server-authoritative game state (only during playing) */
   gameState: GameState | null;
   bullets: Bullet[];
@@ -40,6 +42,32 @@ interface ServerRoom {
 const rooms = new Map<string, ServerRoom>();
 /** Maps socket.id → roomId for quick lookup */
 const socketToRoom = new Map<string, string>();
+
+// ─── Random Room Name Generator ─────────────────────────────────────────────
+
+const ADJECTIVES = [
+  "Shadow", "Crimson", "Phantom", "Iron", "Void",
+  "Stellar", "Cosmic", "Neon", "Dark", "Silent",
+  "Frozen", "Blazing", "Thunder", "Quantum", "Rogue",
+  "Savage", "Omega", "Alpha", "Nova", "Ghost",
+  "Stealth", "Rapid", "Hyper", "Turbo", "Orbital",
+  "Solar", "Lunar", "Astral", "Primal", "Apex",
+];
+
+const NOUNS = [
+  "Vanguard", "Strike", "Fleet", "Armada", "Sector",
+  "Nebula", "Horizon", "Storm", "Fury", "Blitz",
+  "Assault", "Recon", "Outpost", "Bastion", "Citadel",
+  "Corsair", "Raider", "Sentinel", "Vortex", "Eclipse",
+  "Forge", "Havoc", "Nexus", "Pulse", "Rift",
+  "Siege", "Titan", "Wraith", "Zenith", "Abyss",
+];
+
+function generateRandomRoomName(): string {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  return `${adj} ${noun}`;
+}
 
 function generateRoomId(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -60,6 +88,7 @@ function getRoomInfo(room: ServerRoom): RoomInfo {
     playerCount: room.players.size,
     maxPlayers: 2,
     createdAt: room.createdAt,
+    hasPassword: room.password !== null,
   };
 }
 
@@ -176,7 +205,6 @@ function startGameLoop(io: Server, room: ServerRoom) {
 
     // Phase change detection
     if (room.gameState.phase === "programming") {
-      // Check if both players are ready
       const allReady = Object.values(room.gameState.players).every((p) => p.isReady);
       if (allReady || room.gameState.turnTime <= 0) {
         // Engine handles phase transition in updateGame
@@ -221,7 +249,7 @@ export function registerMultiplayerHandlers(
     });
 
     // ─── Room: Create ────────────────────────────────────────────────
-    socket.on("room:create", ({ roomName, playerName }, cb) => {
+    socket.on("room:create", ({ roomName, playerName, password }, cb) => {
       // Leave any existing room first
       leaveCurrentRoom(io, socket);
 
@@ -236,13 +264,17 @@ export function registerMultiplayerHandlers(
         socketId: socket.id,
       };
 
+      // Always use a random name for the room
+      const finalName = generateRandomRoomName();
+
       const room: ServerRoom = {
         id: roomId,
-        name: roomName || `${playerName}'s Room`,
+        name: finalName,
         status: "waiting",
         hostId: socket.id,
         players: new Map([[socket.id, player]]),
         createdAt: Date.now(),
+        password: password && password.trim() ? password.trim() : null,
         gameState: null,
         bullets: [],
         tickInterval: null,
@@ -258,7 +290,7 @@ export function registerMultiplayerHandlers(
     });
 
     // ─── Room: Join ──────────────────────────────────────────────────
-    socket.on("room:join", ({ roomId, playerName }, cb) => {
+    socket.on("room:join", ({ roomId, playerName, password }, cb) => {
       const room = rooms.get(roomId);
       if (!room) {
         cb({ ok: false, error: "Room not found" });
@@ -271,6 +303,14 @@ export function registerMultiplayerHandlers(
       if (room.players.size >= 2) {
         cb({ ok: false, error: "Room is full" });
         return;
+      }
+
+      // Password check
+      if (room.password !== null) {
+        if (!password || password.trim() !== room.password) {
+          cb({ ok: false, error: "Incorrect password" });
+          return;
+        }
       }
 
       // Leave any existing room first

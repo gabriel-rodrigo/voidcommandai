@@ -13,6 +13,8 @@ export interface RoomInfo {
   playerCount: number;
   maxPlayers: 2;
   createdAt: number;
+  /** Whether the room requires a password to join */
+  hasPassword: boolean;
 }
 
 export interface RoomPlayer {
@@ -100,10 +102,16 @@ export interface GameEventData {
 
 /** Client → Server events */
 export interface ClientToServerEvents {
-  /** Create a new room */
-  "room:create": (data: { roomName: string; playerName: string }, cb: (res: { ok: boolean; roomId?: string; error?: string }) => void) => void;
-  /** Join an existing room */
-  "room:join": (data: { roomId: string; playerName: string }, cb: (res: { ok: boolean; error?: string }) => void) => void;
+  /** Create a new room (password is optional) */
+  "room:create": (
+    data: { roomName: string; playerName: string; password?: string },
+    cb: (res: { ok: boolean; roomId?: string; error?: string }) => void
+  ) => void;
+  /** Join an existing room (password required if room is protected) */
+  "room:join": (
+    data: { roomId: string; playerName: string; password?: string },
+    cb: (res: { ok: boolean; error?: string }) => void
+  ) => void;
   /** Leave current room */
   "room:leave": () => void;
   /** List available rooms */
